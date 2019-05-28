@@ -1,5 +1,5 @@
 julia 0.7
-GeoRasters
+GeoArrays
 LazIO
 ProgressMeter
 StaticArrays
