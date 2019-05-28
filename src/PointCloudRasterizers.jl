@@ -1,6 +1,6 @@
 module PointCloudRasterizers
 
-using GeoRasters
+using GeoArrays
 using ProgressMeter
 using LazIO
 using StaticArrays
@@ -41,7 +41,7 @@ function rasterize(ds, bbox, cellsizes, wkt="")
         @inbounds counts[li] += 1
     end
     indvec, counts
-	ga = GeoArray(reshape(counts, size(counts)..., 1), GeoRasters.geotransform_to_affine(SVector(min_x,cellsizes[1],0.,min_y,0.,cellsizes[2])), wkt)
+	ga = GeoArray(reshape(counts, size(counts)..., 1), GeoArrays.geotransform_to_affine(SVector(min_x,cellsizes[1],0.,min_y,0.,cellsizes[2])), wkt)
 	RasterIndex(ga, indvec)
 end
 
