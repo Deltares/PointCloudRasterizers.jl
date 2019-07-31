@@ -1,0 +1,10 @@
+name = "PointCloudRasterizers"
+uuid = "971589f2-82d2-11e9-1393-93ab095f3ec7"
+authors = ["Maarten Pronk <git@evetion.nl>"]
+version = "0.1.0"
+
+[deps]
+GeoArrays = "2fb1d81b-e6a0-5fc5-82e6-8e06903437ab"
+LazIO = "c3605908-9f0f-11e8-0a72-0d361c15a277"
+ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"

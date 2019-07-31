@@ -15,22 +15,26 @@ Use the Julia package manager:
 ```julia
 using PointCloudRasterizers
 using LazIO
-using GeoRasters
+using GeoArrays
+using Statistics
 
 # Open LAZ file
-ds = LazIO.open("points.laz")
-boundingbox = unscaled_bbox(ds)
+lazfn = joinpath(dirname(pathof(LazIO)), "..", "test/libLAS_1.2.laz")
+pointcloud = LazIO.open(lazfn)
 
-# Rasterize pointcloud
-cellsizes = (10.,10.)
-index = rasterize(ds, boundingbox, cellsizes)
+# Index pointcloud
+cellsizes = (1.,1.)
+index = index(pointcloud, cellsizes)
 
-# Take minimum elevation of points for each cell
-minraster = reduce_pointcloud(ds, index, field=:Z, reducer=minimum)
+# Filter on last returns (inclusive)
+last_return(p) = return_number(p) == number_of_returns(p)
+filter!(index, filter)
+
+# Reduce to raster
+raster = reduce(index, field=:Z, reducer=median)
 
 # Save raster to tiff
-GeoRasters.write!("minimum_z.tif", minraster)
-
+GeoArrays.write!("last_return_median.tif", raster)
 ```
 
 ## Future Work
