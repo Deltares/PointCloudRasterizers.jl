@@ -1,3 +1,4 @@
+push!(LOAD_PATH,"../src/")
 using Documenter, PointCloudRasterizers
 
 makedocs(modules = [PointCloudRasterizers], sitename = "PointCloudRasterizers.jl")
