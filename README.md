@@ -26,14 +26,14 @@ pointcloud = LazIO.open(lazfn)
 
 # Index pointcloud
 cellsizes = (1.,1.)
-index = index(pointcloud, cellsizes)
+raster_index = index(pointcloud, cellsizes)
 
 # Filter on last returns (inclusive)
 last_return(p) = return_number(p) == number_of_returns(p)
-filter!(index, filter)
+filter!(raster_index, last_return)
 
 # Reduce to raster
-raster = reduce(index, field=:Z, reducer=median)
+raster = reduce(raster_index, field=:Z, reducer=median)
 
 # Save raster to tiff
 GeoArrays.write!("last_return_median.tif", raster)
