@@ -24,10 +24,31 @@ using Statistics
 lazfn = joinpath(dirname(pathof(LazIO)), "..", "test/libLAS_1.2.laz")
 pointcloud = LazIO.open(lazfn)
 
+#LAS file support is provided through LazIO.open() as well
+pointcloud = LazIO.open(somefile.las)
+```
+
+```julia
 # Index pointcloud
-cellsizes = (1.,1.)
+cellsizes = (1.,1.) #can also use [1.,1.]
 raster_index = index(pointcloud, cellsizes)
 
+#get some information about the index
+
+#the dataset the index was calculated from
+raster_index.ds
+
+#::GeoArray of point density per cell
+raster_index.counts
+
+#find highest recorded point density
+maximum(raster_index.counts)
+
+#one dimensional vector of index values joining points to cells
+raster_index.index
+```
+
+```julia
 # Filter on last returns (inclusive)
 last_return(p) = return_number(p) == number_of_returns(p)
 filter!(raster_index, last_return)
@@ -43,14 +64,20 @@ The reducer can be functions such as `mean`, `median`, `length` but can also tak
 ```julia
 #calculate raster of median height using an anonymous function
 height_percentile = reduce(raster_index, field=:Z, reducer = x -> quantile(x,0.5))
-
-#calculate raster of point density per cell
-counts_x = reduce(raster_index, field=:X, reducer=length)
-
-#find highest recorded point density
-findmax(skipmissing(counts_x[:,:,1]))
 ```
+
 `field` is always a symbol and can either be `:X`, `:Y`, or `:Z`. In the event that your area of interest and/or cellsize is square, using `:X` or `:Y` may both return the same results.
+
+Any reduced layer is returned as a [GeoArray](https://github.com/evetion/GeoArrays.jl) and has the same fields. 
+
+```julia
+#access the underlying data GeoArray
+raster.A
+#affine map information
+raster.f
+#crs information
+raster.crs
+```
 
 ```julia
 # Save raster to tiff
