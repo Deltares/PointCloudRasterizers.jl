@@ -22,10 +22,8 @@ using Statistics
 
 # Open LAZ file
 lazfn = joinpath(dirname(pathof(LazIO)), "..", "test/libLAS_1.2.laz")
-pointcloud = LazIO.open(lazfn)
-
 #LAS file support is provided through LazIO.open() as well
-pointcloud = LazIO.open(somefile.las)
+pointcloud = LazIO.open(lazfn)
 ```
 
 ```julia
@@ -47,6 +45,7 @@ maximum(raster_index.counts)
 #one dimensional vector of index values joining points to cells
 raster_index.index
 ```
+The `.index` is created using `LinearIndices` so the index is a single integer value per cell rather than cartesian (X,Y) syntax
 
 ```julia
 # Filter on last returns (inclusive)
@@ -68,7 +67,7 @@ height_percentile = reduce(raster_index, field=:Z, reducer = x -> quantile(x,0.5
 
 `field` is always a symbol and can either be `:X`, `:Y`, or `:Z`. In the event that your area of interest and/or cellsize is square, using `:X` or `:Y` may both return the same results.
 
-Any reduced layer is returned as a [GeoArray](https://github.com/evetion/GeoArrays.jl) and has the same fields. 
+Any reduced layer is returned as a [GeoArray](https://github.com/evetion/GeoArrays.jl). 
 
 ```julia
 #access the underlying data GeoArray
