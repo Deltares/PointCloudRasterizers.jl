@@ -25,5 +25,8 @@ filter!(idx, last_return)
 # Reduce to raster
 raster = reduce(idx, field=:Z, reducer=median)
 
+within_tol(p, raster_value) = isapprox(p.Z, raster_value, atol=5.0)
+filter!(idx, raster, within_tol)
+
 # Save raster to tiff
 GeoArrays.write!("last_return_median.tif", raster)

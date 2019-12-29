@@ -31,7 +31,7 @@ pointcloud = LazIO.open(lazfn)
 cellsizes = (1.,1.) #can also use [1.,1.]
 raster_index = index(pointcloud, cellsizes)
 
-#get some information about the index
+##get some information about the index:
 
 #the dataset the index was calculated from
 raster_index.ds
@@ -54,6 +54,14 @@ filter!(raster_index, last_return)
 ```
 Filters are done in-place and create a new index matching the condition. It does not change the loaded dataset.
 
+Filtering can also be done compared to a computed surface.
+For example, if we want to select all points within some tolerance of the median raster from above:
+
+```julia
+within_tol(p, raster_value) = isapprox(p.Z, raster_value, atol=5.0)
+filter!(idx, raster, within_tol)
+```
+
 ```julia
 # Reduce to raster
 raster = reduce(raster_index, field=:Z, reducer=median)
@@ -70,6 +78,7 @@ height_percentile = reduce(raster_index, field=:Z, reducer = x -> quantile(x,0.5
 Any reduced layer is returned as a [GeoArray](https://github.com/evetion/GeoArrays.jl). 
 
 ```julia
+
 #access the underlying data GeoArray
 raster.A
 #affine map information
