@@ -14,9 +14,9 @@ raster = reduce(idx, field=:Z, reducer=median)
 
 #indexing and reducing tests
 @test typeof(idx) == PointCloudRasterizers.PointCloudIndex
-@test count(ismissing,raster) == 24513458
+@test count(ismissing,raster) == 24503457
 @test count(!ismissing,raster) == 496543
-@test isapprox(mean(skipmissing(raster.A)),86154.22515270581 )
+@test isapprox(mean(skipmissing(raster.A)), 861.5422515270361)
 @test maximum(idx.counts) == 2
 
 #filtering tests
