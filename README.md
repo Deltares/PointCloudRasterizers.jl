@@ -22,7 +22,8 @@ using Statistics
 
 # Open LAZ file
 lazfn = joinpath(dirname(pathof(LazIO)), "..", "test/libLAS_1.2.laz")
-#LAS file support is provided through LazIO.open() as well
+
+# LAS file support is provided through LazIO.open() as well
 pointcloud = LazIO.open(lazfn)
 ```
 
@@ -31,21 +32,48 @@ pointcloud = LazIO.open(lazfn)
 cellsizes = (1.,1.) #can also use [1.,1.]
 raster_index = index(pointcloud, cellsizes)
 
-##get some information about the index:
+# get some information about the index
 
-#the dataset the index was calculated from
+# the dataset the index was calculated from
 raster_index.ds
 
-#::GeoArray of point density per cell
+# ::GeoArray of point density per cell
 raster_index.counts
 
-#find highest recorded point density
+# find highest recorded point density
 maximum(raster_index.counts)
 
-#one dimensional vector of index values joining points to cells
+# one dimensional vector of index values joining points to cells
 raster_index.index
 ```
 The `.index` is created using `LinearIndices` so the index is a single integer value per cell rather than cartesian (X,Y) syntax
+
+Once an index is created, users can pass the index to the `reduce` function to convert to a raster.
+
+```julia
+# Reduce to raster
+raster = reduce(raster_index, field=:Z, reducer=median)
+```
+The reducer can be functions such as `mean`, `median`, `length` but can also take custom functions.
+
+```julia
+# calculate raster of median height using an anonymous function
+height_percentile = reduce(raster_index, field=:Z, reducer = x -> quantile(x,0.5))
+```
+
+`field` is always a symbol and can either be `:X`, `:Y`, or `:Z`. In the event that your area of interest and/or cellsize is square, using `:X` or `:Y` may both return the same results.
+
+Any reduced layer is returned as a [GeoArray](https://github.com/evetion/GeoArrays.jl). 
+
+```julia
+# access the underlying data GeoArray
+raster.A
+# affine map information
+raster.f
+# crs information
+raster.crs
+```
+Lastly, users can filter points matching some condition.
 
 ```julia
 # Filter on last returns (inclusive)
@@ -60,31 +88,6 @@ For example, if we want to select all points within some tolerance of the median
 ```julia
 within_tol(p, raster_value) = isapprox(p.Z, raster_value, atol=5.0)
 filter!(idx, raster, within_tol)
-```
-
-```julia
-# Reduce to raster
-raster = reduce(raster_index, field=:Z, reducer=median)
-```
-The reducer can be functions such as `mean`, `median`, `length` but can also take custom functions.
-
-```julia
-#calculate raster of median height using an anonymous function
-height_percentile = reduce(raster_index, field=:Z, reducer = x -> quantile(x,0.5))
-```
-
-`field` is always a symbol and can either be `:X`, `:Y`, or `:Z`. In the event that your area of interest and/or cellsize is square, using `:X` or `:Y` may both return the same results.
-
-Any reduced layer is returned as a [GeoArray](https://github.com/evetion/GeoArrays.jl). 
-
-```julia
-
-#access the underlying data GeoArray
-raster.A
-#affine map information
-raster.f
-#crs information
-raster.crs
 ```
 
 ```julia

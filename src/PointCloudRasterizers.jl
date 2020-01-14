@@ -77,7 +77,7 @@ end
 """Filter out index on given condition relative to a reduced layer."""
 function Base.filter!(index::PointCloudRasterizers.PointCloudIndex, raster::GeoArray, condition=nothing)
 
-    #check that size and affine info match
+    # check that size and affine info match
     size(index.counts.A) == size(raster.A) || throw(DimensionMismatch("The sizes of the index and raster do not match."))
     index.counts.f == raster.f || error("The affine information does not match")
     index.counts.crs == raster.crs || error("The crs information does not match")
