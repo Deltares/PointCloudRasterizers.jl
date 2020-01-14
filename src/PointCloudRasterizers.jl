@@ -74,6 +74,28 @@ function Base.filter!(index::PointCloudIndex, condition=nothing)
 	end
 end
 
+"""Filter out index on given condition relative to a reduced layer."""
+function Base.filter!(index::PointCloudRasterizers.PointCloudIndex, raster::GeoArray, condition=nothing)
+
+    # check that size and affine info match
+    size(index.counts.A) == size(raster.A) || throw(DimensionMismatch("The sizes of the index and raster do not match."))
+    index.counts.f == raster.f || error("The affine information does not match")
+    index.counts.crs == raster.crs || error("The crs information does not match")
+
+    if condition != nothing
+        @showprogress 1 "Reducing points..." for (i, p) in enumerate(index.ds)
+            @inbounds ind = index.index[i]
+            ind == 0 && continue  # filtered point
+            raster_value = raster[ind]
+
+            if ~condition(p, raster_value)
+                @inbounds index.counts.A[ind] -= 1
+                @inbounds index.index[i] = 0
+            end
+        end
+    end
+end
+
 """Reduce multiple points to single value in given indexed pointcloud."""
 function Base.reduce(index::PointCloudIndex; field::Symbol=:Z, reducer=minimum, output_type=Float64)
 
@@ -122,7 +144,6 @@ function Base.reduce(index::PointCloudIndex; field::Symbol=:Z, reducer=minimum, 
 	end
 
 	ga = GeoArray(output, index.counts.f, index.counts.crs)
-	GeoArrays.flipud!(ga)  # move to GeoArrays
 	ga
 end
 
