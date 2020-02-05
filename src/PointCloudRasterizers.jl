@@ -17,7 +17,7 @@ end
 
 crs(ds::LazIO.LazDataset) = ""  # implement at LazIO.jl
 
-function index(ds::LazIO.LazDataset, unscaled_cellsizes, unscaled_bbox=bbox(ds), wkt=crs(ds))
+function index(ds::LazIO.LazDataset, unscaled_cellsizes, unscaled_bbox=LazIO.boundingbox(ds), wkt=crs(ds))
 
 	# determine requested raster size
 	cellsizes = (unscaled_cellsizes[1] / ds.header.x_scale_factor, unscaled_cellsizes[2] / ds.header.y_scale_factor)
