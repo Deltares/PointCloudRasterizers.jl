@@ -204,8 +204,6 @@ version = "1.0.2"
 [[GeoArrays]]
 deps = ["ArchGDAL", "CoordinateTransformations", "GDAL", "GeoStatsBase", "RecipesBase", "StaticArrays"]
 git-tree-sha1 = "b35fe9a25d74c9361c667ccea88ce0442eeed406"
-repo-rev = "master"
-repo-url = "https://github.com/evetion/GeoArrays.jl.git"
 uuid = "2fb1d81b-e6a0-5fc5-82e6-8e06903437ab"
 version = "0.1.6"
 
@@ -251,8 +249,6 @@ version = "0.3.4"
 [[LazIO]]
 deps = ["BinaryProvider", "FileIO", "FixedPointNumbers", "LasIO", "Libdl", "Parameters", "Tables", "Test"]
 git-tree-sha1 = "280023664bca1589a1614e744c6d31a327a233e3"
-repo-rev = "master"
-repo-url = "https://github.com/evetion/LazIO.jl.git"
 uuid = "c3605908-9f0f-11e8-0a72-0d361c15a277"
 version = "0.1.3"
 
