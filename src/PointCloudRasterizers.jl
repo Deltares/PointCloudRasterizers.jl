@@ -4,20 +4,28 @@ using GeoArrays
 using ProgressMeter
 using LazIO
 using StaticArrays
+using DataFrames
 
 include("utils.jl")
 
 """GeoArray with the number of points in each cell
 and an index for each point pointing to the cell its in."""
 struct PointCloudIndex
-	ds::LazIO.LazDataset
+	ds::Union{LazIO.LazDataset,DataFrame}
 	counts::GeoArray
 	index::Vector{Int64}
 end
 
 crs(ds::LazIO.LazDataset) = ""  # implement at LazIO.jl
+crs(ds::DataFrame) = ""  # implement at LazIO.jl
+Base.length(df::DataFrame) = nrow(df)
+Base.enumerate(df::DataFrame) = enumerate(eachrow(df))
 
-function index(ds::LazIO.LazDataset, cellsizes, bbox=LazIO.boundingbox(ds), wkt=crs(ds))
+function boundingbox(ds::DataFrame)
+    NamedTuple{(:min_x, :max_x, :min_y, :max_y, :min_z, :max_z)}((extrema(ds.x)..., extrema(ds.y)..., extrema(ds.z)...))
+end
+
+function index(ds::LazIO.LazDataset, cellsizes, bbox=boundingbox(ds), wkt=crs(ds))
 
 	# determine requested raster size
 	unscaled_cellsizes = (cellsizes[1] / ds.header.x_scale_factor, cellsizes[2] / ds.header.y_scale_factor)
@@ -38,9 +46,9 @@ function index(ds::LazIO.LazDataset, cellsizes, bbox=LazIO.boundingbox(ds), wkt=
 	@info "Indexing into a grid of $(size(counts))"
 
     @showprogress "Building raster index.." for (i, p) in enumerate(ds)
-        (u_min_x < p.X <= u_max_x && u_min_y < p.Y <= u_max_y ) || continue #&& u_min_z <= p.Z <= u_max_z) || continue
-        row = Int(fld(p.X - u_min_x, unscaled_cellsizes[1])+1)
-        col = Int(fld(p.Y - u_min_y, unscaled_cellsizes[2])+1)
+        (u_min_x < p.X <= u_max_x && u_min_y < p.Y <= u_max_y ) || continue # && u_min_z <= p.Z <= u_max_z) || continue
+        row = Int(fld(p.X - u_min_x, unscaled_cellsizes[1]) + 1)
+        col = Int(fld(p.Y - u_min_y, unscaled_cellsizes[2]) + 1)
         # height = div(p.Z - min_z, cellsize_z) + 1
 
         # Include points on edge
@@ -48,12 +56,44 @@ function index(ds::LazIO.LazDataset, cellsizes, bbox=LazIO.boundingbox(ds), wkt=
         p.Y == u_max_y && (col -= 1)
         # p.Z == u_max_z && (height -= 1)
 
-        li = linind[row, col]#, height]
+        li = linind[row, col]# , height]
         @inbounds indvec[i] = li
         @inbounds counts[li] += 1
     end
 
-	affine = GeoArrays.geotransform_to_affine(SVector(min_x,cellsizes[1],0.,min_y,0.,cellsizes[2]))
+	affine = GeoArrays.geotransform_to_affine(SVector(min_x, cellsizes[1], 0., min_y, 0., cellsizes[2]))
+	ga = GeoArray(reshape(counts, size(counts)..., 1), affine, wkt)
+
+	PointCloudIndex(ds, ga, indvec)
+end
+
+function index(ds::DataFrame, cellsizes, bbox=boundingbox(ds::DataFrame), wkt=crs(ds::DataFrame))
+
+	# determine requested raster size
+    indvec = zeros(Int, nrow(ds))
+    min_x, max_x, min_y, max_y, min_z, max_z = bbox
+
+    counts = countsgrid((min_x, min_y, min_z, max_x, max_y, max_z), cellsizes)
+    linind = LinearIndices(counts)
+	@info "Indexing into a grid of $(size(counts))"
+
+    @showprogress "Building raster index.." for (i, p) in enumerate(ds)
+        (min_x < p.x <= max_x && min_y < p.y <= max_y ) || continue # && min_z <= p.Z <= max_z) || continue
+        row = Int(fld(p.x - min_x, cellsizes[1]) + 1)
+        col = Int(fld(p.y - min_y, cellsizes[2]) + 1)
+        # height = div(p.Z - min_z, cellsize_z) + 1
+
+        # Include points on edge
+        p.x == max_x && (row -= 1)
+        p.z == max_y && (col -= 1)
+        # p.Z == max_z && (height -= 1)
+
+        li = linind[row, col]# , height]
+        @inbounds indvec[i] = li
+        @inbounds counts[li] += 1
+    end
+
+	affine = GeoArrays.geotransform_to_affine(SVector(min_x, cellsizes[1], 0., min_y, 0., cellsizes[2]))
 	ga = GeoArray(reshape(counts, size(counts)..., 1), affine, wkt)
 
 	PointCloudIndex(ds, ga, indvec)
@@ -102,8 +142,8 @@ function Base.reduce(index::PointCloudIndex; field::Symbol=:Z, reducer=minimum, 
 	# Setup output grid
 	counts = copy(index.counts.A)
 	# output_type = fieldtype(eltype(index.ds), field)
-    d = Dict{Int, Vector{output_type}}()
-    output = similar(counts, Union{Missing, output_type})  # init missing
+    d = Dict{Int,Vector{output_type}}()
+    output = similar(counts, Union{Missing,output_type})  # init missing
 
     @showprogress 1 "Reducing points..." for (i, p) in enumerate(index.ds)
 
@@ -117,10 +157,10 @@ function Base.reduce(index::PointCloudIndex; field::Symbol=:Z, reducer=minimum, 
         if !haskey(d, ind)
             d[ind] = Vector{output_type}(undef, cnt)
         end
-
+        
         # Assign point attribute to tile and decrease sizes
         # as it's used as pointer in the tile
-        d[ind][cnt] = getfield(p, field)
+        d[ind][cnt] = getproperty(p, field)
         newcnt = counts[ind] -= 1
 
         # If count reaches 0
@@ -133,22 +173,21 @@ function Base.reduce(index::PointCloudIndex; field::Symbol=:Z, reducer=minimum, 
 			else
 				output[ind] = missing
 			end
-
+            
             delete!(d, ind)
         end
     end
-
+    
 	# Scale coordinates back if necessary
 	if field == :Z
 		output = (output .+ index.ds.header.z_offset) .* index.ds.header.z_scale_factor
 	end
-
+    
 	ga = GeoArray(output, index.counts.f, index.counts.crs)
 	ga
 end
 
-export
-	bbox,
+export bbox,
 	index,
 	filter,
 	reduce
