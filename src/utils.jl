@@ -5,5 +5,5 @@ function countsgrid(bbox, cellsizes)
     rows = Int(cld(max_x - min_x, cellsizes[1]))
     cols = Int(cld(max_y - min_y, cellsizes[2]))
     # heights = Int(cld(max_z - min_z, cellsizes[3]))
-    zeros(Int64, rows, cols) #, heights)
+    zeros(Int64, rows, cols) # , heights)
 end
