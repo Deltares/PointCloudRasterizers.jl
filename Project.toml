@@ -1,7 +1,7 @@
 name = "PointCloudRasterizers"
 uuid = "971589f2-82d2-11e9-1393-93ab095f3ec7"
 authors = ["Maarten Pronk <git@evetion.nl>"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 GeoArrays = "2fb1d81b-e6a0-5fc5-82e6-8e06903437ab"
