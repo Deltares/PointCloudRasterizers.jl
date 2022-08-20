@@ -20,5 +20,5 @@ makedocs(;
 
 deploydocs(;
     repo="github.com/evetion/PointCloudRasterizers.jl",
-    devbranch="main"
+    devbranch="master"
 )

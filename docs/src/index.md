@@ -5,8 +5,10 @@ CurrentModule = PointCloudRasterizers
 # PointCloudRasterizers
 Documentation for [PointCloudRasterizers](https://github.com/evetion/PointCloudRasterizers.jl).
 
-[![Build Status](https://travis-ci.org/Deltares/PointCloudRasterizers.jl.svg?branch=master)](https://travis-ci.org/Deltares/PointCloudRasterizers.jl)
-[![Build status](https://ci.appveyor.com/api/projects/status/1ky79ibw82f8rif2/branch/master?svg=true)](https://ci.appveyor.com/project/evetion/pointcloudrasterizers-jl/branch/master)
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://evetion.github.io/PointCloudRasterizers.jl/stable)
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://evetion.github.io/PointCloudRasterizers.jl/dev)
+[![CI](https://github.com/Deltares/PointCloudRasterizers.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/Deltares/PointCloudRasterizers.jl/actions/workflows/CI.yml)
+[![Coverage](https://codecov.io/gh/evetion/PointCloudRasterizers.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/evetion/PointCloudRasterizers.jl)
 
 PointCloudRasterizers is a Julia package for creating geographical raster images from larger than memory pointclouds.
 
@@ -51,7 +53,7 @@ maximum(raster_index.counts)
 # one dimensional vector of index values joining points to cells
 raster_index.index
 ```
-The `.index` is created using `LinearIndices` so the index is a single integer value per cell rather than cartesian (X,Y) syntax
+The `.index` is created using `LinearIndices`, so the index is a single integer value per cell rather than cartesian (X,Y) syntax
 
 Once an index is created, users can pass the index to the `reduce` function to convert to a raster.
 

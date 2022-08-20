@@ -1,7 +1,7 @@
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://evetion.github.io/PointCloudRasterizers.jl/stable)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://evetion.github.io/PointCloudRasterizers.jl/dev)
 [![CI](https://github.com/Deltares/PointCloudRasterizers.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/Deltares/PointCloudRasterizers.jl/actions/workflows/CI.yml)
-[![Coverage](https://codecov.io/gh/evetion/PointCloudRasterizers.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/evetion/PointCloudRasterizers.jl)
+[![Coverage](https://codecov.io/gh/evetion/PointCloudRasterizers.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/evetion/PointCloudRasterizers.jl)
 
 # [WIP] PointCloudRasterizers.jl
 Rasterize larger than memory pointclouds
