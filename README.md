@@ -9,7 +9,7 @@ PointCloudRasterizers is a Julia package for creating geographical raster images
 
 Use the Julia package manager:
 ```julia
-(v1.1) pkg> add https://github.com/Deltares/PointCloudRasterizers.jl
+(v1.8) pkg> add https://github.com/Deltares/PointCloudRasterizers.jl
 ```
 
 ## Usage
@@ -46,7 +46,7 @@ maximum(raster_index.counts)
 # one dimensional vector of index values joining points to cells
 raster_index.index
 ```
-The `.index` is created using `LinearIndices` so the index is a single integer value per cell rather than cartesian (X,Y) syntax
+The `.index` is created using `LinearIndices`, so the index is a single integer value per cell rather than cartesian (X,Y) syntax
 
 Once an index is created, users can pass the index to the `reduce` function to convert to a raster.
 
@@ -63,7 +63,7 @@ height_percentile = reduce(raster_index, field=:Z, reducer = x -> quantile(x,0.5
 
 `field` is always a symbol and can either be `:X`, `:Y`, or `:Z`. In the event that your area of interest and/or cellsize is square, using `:X` or `:Y` may both return the same results.
 
-Any reduced layer is returned as a [GeoArray](https://github.com/evetion/GeoArrays.jl). 
+Any reduced layer is returned as a [GeoArray](https://github.com/evetion/GeoArrays.jl).
 
 ```julia
 # access the underlying data GeoArray

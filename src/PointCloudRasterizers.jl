@@ -7,8 +7,14 @@ using StaticArrays
 
 include("utils.jl")
 
-"""GeoArray with the number of points in each cell
-and an index for each point pointing to the cell its in."""
+"""
+    PointCloudIndex
+
+GeoArray with the number of points in each cell
+and an index for each point pointing to the cell its in.
+
+Construct one by calling [`index`](@ref).
+"""
 struct PointCloudIndex
     ds::LazIO.LazDataset
     counts::GeoArray
@@ -17,6 +23,13 @@ end
 
 crs(ds::LazIO.LazDataset) = ""  # implement at LazIO.jl
 
+"""
+    index(ds::LazIO.LazDataset, cellsizes, bbox=LazIO.boundingbox(ds), wkt=crs(ds))
+
+Index a pointcloud `ds` to a raster, for given `cellsizes` and `bbox`. The `wkt` will be
+the CRS of the output raster.
+Returns a [`PointCloudIndex`](@ref).
+"""
 function index(ds::LazIO.LazDataset, cellsizes, bbox=LazIO.boundingbox(ds), wkt=crs(ds))
 
     # determine requested raster size
@@ -59,7 +72,12 @@ function index(ds::LazIO.LazDataset, cellsizes, bbox=LazIO.boundingbox(ds), wkt=
     PointCloudIndex(ds, ga, indvec)
 end
 
-"""Filter out index on given condition."""
+"""
+    filter!(index::PointCloudIndex, condition=nothing)
+
+Filter an `index` in place given a `condition`.
+The `condition` is applied to each [`LazIO.LazPoint`](@ref) in the `index`.
+"""
 function Base.filter!(index::PointCloudIndex, condition=nothing)
     if condition != nothing
         n = 0
@@ -77,8 +95,16 @@ function Base.filter!(index::PointCloudIndex, condition=nothing)
     end
 end
 
-"""Filter out index on given condition relative to a reduced layer."""
-function Base.filter!(index::PointCloudRasterizers.PointCloudIndex, raster::GeoArray, condition=nothing)
+"""
+    filter!(index::PointCloudIndex, raster::GeoArray, condition=nothing)
+
+Filter an `index` in place given a `raster` and a `condition`.
+The `condition` is applied to each [`LazIO.LazPoint`](@ref) in the `index`, together
+with the cell value of the raster at that point, as in `condition(p, raster[ind])`.
+
+The `raster` should be the same size as the `index`.
+"""
+function Base.filter!(index::PointCloudIndex, raster::GeoArray, condition=nothing)
 
     # check that size and affine info match
     size(index.counts.A) == size(raster.A) || throw(DimensionMismatch("The sizes of the index and raster do not match."))
@@ -102,7 +128,12 @@ function Base.filter!(index::PointCloudRasterizers.PointCloudIndex, raster::GeoA
     end
 end
 
-"""Reduce multiple points to single value in given indexed pointcloud."""
+"""
+    reduce(index::PointCloudIndex; field::Symbol=:Z, reducer=minimum, output_type=Float64)
+
+Reduce the indexed pointcloud `index` to a raster with type `output_type`, using the `field` of the points to reduce with `reducer`.
+For example, one might reduce on `minimum` and `:Z`, to get the lowest Z (elevation) value of all points intersecting each raster cell.
+"""
 function Base.reduce(index::PointCloudIndex; field::Symbol=:Z, reducer=minimum, output_type=Float64)
 
     # Setup output grid

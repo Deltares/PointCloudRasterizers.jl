@@ -1,8 +1,24 @@
-push!(LOAD_PATH,"../src/")
-using Documenter, PointCloudRasterizers
+using PointCloudRasterizers
+using Documenter
 
-makedocs(modules = [PointCloudRasterizers], sitename = "PointCloudRasterizers.jl")
+DocMeta.setdocmeta!(PointCloudRasterizers, :DocTestSetup, :(using PointCloudRasterizers); recursive=true)
 
-deploydocs(
-    repo = "github.com/Deltares/PointCloudRasterizers.jl.git",
+makedocs(;
+    modules=[PointCloudRasterizers],
+    authors="Maarten Pronk <git@evetion.nl>, Deltares and contributors.",
+    repo="https://github.com/evetion/PointCloudRasterizers.jl/blob/{commit}{path}#{line}",
+    sitename="PointCloudRasterizers.jl",
+    format=Documenter.HTML(;
+        prettyurls=get(ENV, "CI", "false") == "true",
+        canonical="https://evetion.github.io/PointCloudRasterizers.jl",
+        assets=String[]
+    ),
+    pages=[
+        "Home" => "index.md",
+    ]
+)
+
+deploydocs(;
+    repo="github.com/evetion/PointCloudRasterizers.jl",
+    devbranch="main"
 )
