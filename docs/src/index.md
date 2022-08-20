@@ -3,12 +3,12 @@ CurrentModule = PointCloudRasterizers
 ```
 
 # PointCloudRasterizers
-Documentation for [PointCloudRasterizers](https://github.com/evetion/PointCloudRasterizers.jl).
+Documentation for [PointCloudRasterizers](https://github.com/Deltares/PointCloudRasterizers.jl).
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://evetion.github.io/PointCloudRasterizers.jl/stable)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://evetion.github.io/PointCloudRasterizers.jl/dev)
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://deltares.github.io/PointCloudRasterizers.jl/stable)
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://deltares.github.io/PointCloudRasterizers.jl/dev)
 [![CI](https://github.com/Deltares/PointCloudRasterizers.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/Deltares/PointCloudRasterizers.jl/actions/workflows/CI.yml)
-[![Coverage](https://codecov.io/gh/evetion/PointCloudRasterizers.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/evetion/PointCloudRasterizers.jl)
+[![Coverage](https://codecov.io/gh/Deltares/PointCloudRasterizers.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/Deltares/PointCloudRasterizers.jl)
 
 PointCloudRasterizers is a Julia package for creating geographical raster images from larger than memory pointclouds.
 

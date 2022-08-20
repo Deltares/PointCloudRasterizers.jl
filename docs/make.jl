@@ -6,11 +6,11 @@ DocMeta.setdocmeta!(PointCloudRasterizers, :DocTestSetup, :(using PointCloudRast
 makedocs(;
     modules=[PointCloudRasterizers],
     authors="Maarten Pronk <git@evetion.nl>, Deltares and contributors.",
-    repo="https://github.com/evetion/PointCloudRasterizers.jl/blob/{commit}{path}#{line}",
+    repo="https://github.com/Deltares/PointCloudRasterizers.jl/blob/{commit}{path}#{line}",
     sitename="PointCloudRasterizers.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://evetion.github.io/PointCloudRasterizers.jl",
+        canonical="https://deltares.github.io/PointCloudRasterizers.jl",
         assets=String[]
     ),
     pages=[
@@ -19,6 +19,6 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/evetion/PointCloudRasterizers.jl",
+    repo="github.com/Deltares/PointCloudRasterizers.jl",
     devbranch="master"
 )
