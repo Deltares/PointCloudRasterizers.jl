@@ -1,5 +1,8 @@
-[![Build Status](https://travis-ci.org/Deltares/PointCloudRasterizers.jl.svg?branch=master)](https://travis-ci.org/Deltares/PointCloudRasterizers.jl)
-[![Build status](https://ci.appveyor.com/api/projects/status/1ky79ibw82f8rif2/branch/master?svg=true)](https://ci.appveyor.com/project/evetion/pointcloudrasterizers-jl/branch/master)
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://evetion.github.io/PointCloudRasterizers.jl/stable)
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://evetion.github.io/PointCloudRasterizers.jl/dev)
+[![CI](https://github.com/Deltares/PointCloudRasterizers.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/Deltares/PointCloudRasterizers.jl/actions/workflows/CI.yml)
+[![Coverage](https://codecov.io/gh/evetion/PointCloudRasterizers.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/evetion/PointCloudRasterizers.jl)
+
 # [WIP] PointCloudRasterizers.jl
 Rasterize larger than memory pointclouds
 
