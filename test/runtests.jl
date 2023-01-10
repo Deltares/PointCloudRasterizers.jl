@@ -6,11 +6,13 @@ using LazIO
 using PointCloudRasterizers
 using Statistics
 
+lazfn = joinpath(dirname(pathof(LazIO)), "..", "test/libLAS_1.2.laz")
+pointcloud = LazIO.open(lazfn)
+cellsizes = (1.0, 1.0)
+crs = EPSG(4326)
+
 @testset "PointCloudRasterizers" begin
-    lazfn = joinpath(dirname(pathof(LazIO)), "..", "test/libLAS_1.2.laz")
-    pointcloud = LazIO.open(lazfn)
-    cellsizes = (1.0, 1.0)
-    crs = EPSG(4326)
+
     @testset "Indexing" begin
         idx = index(pointcloud, cellsizes; crs=crs)
         @inferred index(pointcloud, cellsizes; crs=crs)
