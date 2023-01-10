@@ -1,11 +1,11 @@
 module PointCloudRasterizers
 
+using Extents
+import Dictionaries
 using GeoArrays
+using GeoInterface
+using GeoFormatTypes
 using ProgressMeter
-using LazIO
-using StaticArrays
-
-include("utils.jl")
 
 """
     PointCloudIndex
@@ -15,62 +15,77 @@ and an index for each point pointing to the cell its in.
 
 Construct one by calling [`index`](@ref).
 """
-struct PointCloudIndex
-    ds::LazIO.LazDataset
-    counts::GeoArray
-    index::Vector{Int64}
+struct PointCloudIndex{T,X}
+    ds::T
+    counts::GeoArray{X}
+    index::Vector{Int}
+end
+Base.copy(idx::PointCloudIndex) = PointCloudIndex(copy(idx.ds), copy(idx.counts), copy(idx.index))
+
+function Base.show(io::IO, ::PointCloudIndex{T,X}) where {T,X}
+    println(io, "PointCloudIndex of $T")
 end
 
-crs(ds::LazIO.LazDataset) = ""  # implement at LazIO.jl
 
 """
-    index(ds::LazIO.LazDataset, cellsizes, bbox=LazIO.boundingbox(ds), wkt=crs(ds))
+    index(ds, cellsizes; bbox=GeoInterface.extent(ds), wkt=GeoInterface.crs(ds))
 
-Index a pointcloud `ds` to a raster, for given `cellsizes` and `bbox`. The `wkt` will be
-the CRS of the output raster.
+Index a pointcloud `ds` to a raster, for given `cellsizes` and `bbox`. The `crs` will be
+the CRS of the output raster. `ds` should implement GeoInterface as a MultiPoint geometry,
+including the 
 Returns a [`PointCloudIndex`](@ref).
 """
-function index(ds::LazIO.LazDataset, cellsizes, bbox=LazIO.boundingbox(ds), wkt=crs(ds))
+function index(ds::T, cellsizes; bbox::Extents.Extent=GeoInterface.extent(ds), crs=GeoInterface.crs(ds))::PointCloudIndex{T} where {T}
+
+    # Check ds for GeoInterface support
+    GeoInterface.isgeometry(ds) && (GeoInterface.geomtrait(ds) == GeoInterface.MultiPointTrait()) || throw(ArgumentError("`ds` must implement GeoInterface as a MultiPoint geometry"))
+    isnothing(bbox) && throw(ArgumentError("Either `ds` must implement GeoInterface.extent(ds) or a `bbox` argument must be provided."))
+    crs isa GeoFormatTypes.CoordinateReferenceSystemFormat || throw(ArgumentError("Either `ds` must implement GeoInterface.crs(ds) or a `crs` must be provided as a GeoFormatType.CRS."))
+
+    cols = Int(cld(bbox.X[2] - bbox.X[1], cellsizes[1]))
+    rows = Int(cld(bbox.Y[2] - bbox.Y[1], cellsizes[2]))
+    ga = GeoArray(zeros(Int64, cols, rows))
+    nt = (min_x=bbox.X[1], min_y=bbox.Y[1], max_x=bbox.X[2], max_y=bbox.Y[2])
+    bbox!(ga, nt)
+    crs!(ga, crs)
+
+    return index!(ds, ga)
+end
+@deprecate index(ds, cellsizes, bbox, crs) index(ds, cellsizes; bbox=bbox, crs=crs)
+
+function index!(ds::T, counts::GeoArray{X})::PointCloudIndex{T} where {T,X}
+    # Check input
+    # TODO Check crs matching (including nothing for LazIO)
+    GeoInterface.isgeometry(ds) && (GeoInterface.geomtrait(ds) == GeoInterface.MultiPointTrait()) || throw(ArgumentError("`ds` must implement GeoInterface as a MultiPoint geometry"))
+    Base.fill!(counts, 0)
 
     # determine requested raster size
-    unscaled_cellsizes = (cellsizes[1] / ds.header.x_scale_factor, cellsizes[2] / ds.header.y_scale_factor)
     indvec = zeros(Int, length(ds))
-    min_x, min_y, min_z, max_x, max_y, max_z = bbox
 
-    # Scale to stored coordinates
-    u_min_x = round(Int32, (min_x - ds.header.x_offset) / ds.header.x_scale_factor)
-    u_min_y = round(Int32, (min_y - ds.header.y_offset) / ds.header.y_scale_factor)
-    u_min_z = round(Int32, (min_z - ds.header.z_offset) / ds.header.z_scale_factor)
-    u_max_x = round(Int32, (max_x - ds.header.x_offset) / ds.header.x_scale_factor)
-    u_max_y = round(Int32, (max_y - ds.header.y_offset) / ds.header.y_scale_factor)
-    u_max_z = round(Int32, (max_z - ds.header.z_offset) / ds.header.z_scale_factor)
-    unscaled_bbox = (u_min_x, u_min_y, u_min_z, u_max_x, u_max_y, u_max_z)
-
-    counts = countsgrid(unscaled_bbox, unscaled_cellsizes)
     linind = LinearIndices(counts)
-    @info "Indexing into a grid of $(size(counts))"
+    cols, rows, _ = size(counts)
 
-    @showprogress "Building raster index.." for (i, p) in enumerate(ds)
-        (u_min_x < p.X <= u_max_x && u_min_y < p.Y <= u_max_y) || continue #&& u_min_z <= p.Z <= u_max_z) || continue
-        row = Int(fld(p.X - u_min_x, unscaled_cellsizes[1]) + 1)
-        col = Int(fld(p.Y - u_min_y, unscaled_cellsizes[2]) + 1)
-        # height = div(p.Z - min_z, cellsize_z) + 1
-
-        # Include points on edge
-        p.X == u_max_x && (row -= 1)
-        p.Y == u_max_y && (col -= 1)
-        # p.Z == u_max_z && (height -= 1)
-
-        li = linind[row, col]#, height]
+    @showprogress 5 "Building index..." for (i, p) in enumerate(GeoInterface.getgeom(ds))
+        col, row = indices(counts, (GeoInterface.x(p), GeoInterface.y(p)))
+        ((0 < col < cols) && (0 < row < rows)) || continue
+        li = linind[col, row]
         @inbounds indvec[i] = li
         @inbounds counts[li] += 1
     end
 
-    affine = GeoArrays.geotransform_to_affine(SVector(min_x, cellsizes[1], 0.0, min_y, 0.0, cellsizes[2]))
-    ga = GeoArray(reshape(counts, size(counts)..., 1), affine, wkt)
-
-    PointCloudIndex(ds, ga, indvec)
+    PointCloudIndex{T,X}(ds, counts, indvec)
 end
+
+"""
+    index(ds, ga::GeoArray)
+
+Index a pointcloud `ds` with the spatial information of an existing GeoArray `ga`.
+Returns a [`PointCloudIndex`](@ref).
+"""
+function index(ds, ga::GeoArray)
+    index!(ds, similar(Int, ga))
+end
+
 
 """
     filter!(index::PointCloudIndex, condition=nothing)
@@ -81,7 +96,7 @@ The `condition` is applied to each [`LazIO.LazPoint`](@ref) in the `index`.
 function Base.filter!(index::PointCloudIndex, condition=nothing)
     if condition != nothing
         n = 0
-        @showprogress 1 "Reducing points..." for (i, p) in enumerate(index.ds)
+        @showprogress 5 "Reducing points..." for (i, p) in enumerate(GeoInterface.getpoint(index.ds))
             @inbounds ind = index.index[i]
             ind == 0 && continue  # filtered point
 
@@ -91,7 +106,6 @@ function Base.filter!(index::PointCloudIndex, condition=nothing)
                 n += 1
             end
         end
-        @info "Filtered $(n) (of $(length(index.ds))) points."
     end
 end
 
@@ -99,7 +113,7 @@ end
     filter!(index::PointCloudIndex, raster::GeoArray, condition=nothing)
 
 Filter an `index` in place given a `raster` and a `condition`.
-The `condition` is applied to each [`LazIO.LazPoint`](@ref) in the `index`, together
+The `condition` is applied to each point in the `index`, together
 with the cell value of the raster at that point, as in `condition(p, raster[ind])`.
 
 The `raster` should be the same size as the `index`.
@@ -113,7 +127,7 @@ function Base.filter!(index::PointCloudIndex, raster::GeoArray, condition=nothin
 
     if condition != nothing
         n = 0
-        @showprogress 1 "Filtering points..." for (i, p) in enumerate(index.ds)
+        @showprogress 5 "Filtering points..." for (i, p) in enumerate(GeoInterface.getpoint(index.ds))
             @inbounds ind = index.index[i]
             ind == 0 && continue  # filtered point
             raster_value = raster[ind]
@@ -124,41 +138,39 @@ function Base.filter!(index::PointCloudIndex, raster::GeoArray, condition=nothin
                 n += 1
             end
         end
-        @info "Filtered $(n) (of $(length(index.ds))) points."
     end
 end
 
 """
-    reduce(index::PointCloudIndex; field::Symbol=:Z, reducer=minimum, output_type=Float64)
+    reduce(index::PointCloudIndex; field::Function=GeoInterface.z, reducer=minimum, output_type=Val(Float64))
 
 Reduce the indexed pointcloud `index` to a raster with type `output_type`, using the `field` of the points to reduce with `reducer`.
-For example, one might reduce on `minimum` and `:Z`, to get the lowest Z (elevation) value of all points intersecting each raster cell.
+For example, one might reduce on `minimum` and `:z`, to get the lowest z (elevation) value of all points intersecting each raster cell.
 """
-function Base.reduce(index::PointCloudIndex; field::Symbol=:Z, reducer=minimum, output_type=Float64)
+function Base.reduce(index::PointCloudIndex; op::Function=GeoInterface.z, reducer=minimum, output_type::Val{T}=Val(Float64))::GeoArray{Union{Missing,T},Array{Union{Missing,T},3}} where {T}
 
     # Setup output grid
-    counts = copy(index.counts.A)
-    # output_type = fieldtype(eltype(index.ds), field)
-    d = Dict{Int,Vector{output_type}}()
-    output = similar(counts, Union{Missing,output_type})  # init missing
+    counts = copy(index.counts)
+    d = Dictionaries.Dictionary{Int,Vector{T}}()
+    output = similar(counts, Union{Missing,T})
 
-    @showprogress 1 "Reducing points..." for (i, p) in enumerate(index.ds)
+    @inbounds @showprogress 5 "Reducing points..." for (i, p) in enumerate(GeoInterface.getpoint(index.ds))
 
         # Gather facts
-        @inbounds ind = index.index[i]
+        ind = index.index[i]
         ind == 0 && continue  # filtered point
-        @inbounds cnt = counts[ind]
+        cnt = counts.A[ind]
         cnt == 0 && continue  # filtered point
 
         # allocate vector points
         if !haskey(d, ind)
-            d[ind] = Vector{output_type}(undef, cnt)
+            insert!(d, ind, Vector{T}(undef, cnt))
         end
 
         # Assign point attribute to tile and decrease sizes
         # as it's used as pointer in the tile
-        d[ind][cnt] = getfield(p, field)
-        newcnt = counts[ind] -= 1
+        d[ind][cnt] = op(p)
+        newcnt = counts.A[ind] -= 1
 
         # If count reaches 0
         # tile is complete and we can operate on it
@@ -166,28 +178,20 @@ function Base.reduce(index::PointCloudIndex; field::Symbol=:Z, reducer=minimum, 
             points = d[ind]
 
             if length(points) > 0
-                output[ind] = reducer(points)
+                output.A[ind] = reducer(points)
             else
-                output[ind] = missing
+                output.A[ind] = missing
             end
 
             delete!(d, ind)
         end
     end
-
-    # Scale coordinates back if necessary
-    if field == :Z && reducer != length
-        output = muladd.(output, output_type(index.ds.header.z_scale_factor), output_type(index.ds.header.z_offset))
-    end
-
-    ga = GeoArray(output, index.counts.f, index.counts.crs)
-    ga
+    return output
 end
 
 export
-    bbox,
     index,
-    filter,
+    filter!,
     reduce
 
 end  # module
