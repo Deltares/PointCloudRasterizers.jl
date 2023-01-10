@@ -1,35 +1,70 @@
 using Test
 
-using PointCloudRasterizers
-using LazIO
 using GeoArrays
+using GeoFormatTypes
+using LazIO
+using PointCloudRasterizers
 using Statistics
 
-@testset "Rasterize file" begin
-    lazfn = joinpath(dirname(pathof(LazIO)), "..", "test/libLAS_1.2.laz")
-    pointcloud = LazIO.open(lazfn)
+lazfn = joinpath(dirname(pathof(LazIO)), "..", "test/libLAS_1.2.laz")
+pointcloud = LazIO.open(lazfn)
+cellsizes = (1.0, 1.0)
+crs = EPSG(4326)
 
-    cellsizes = (1.0, 1.0)
-    idx = index(pointcloud, cellsizes)
-    raster = reduce(idx, field=:Z, reducer=median, output_type=Float32)
-    @test size(raster) == (5000, 5000, 1)
-    @test all(832 .< skipmissing(raster) .< 973)
-    @test all(typeof.(skipmissing(raster)) .== Float32)
+@testset "PointCloudRasterizers" begin
 
-    # indexing and reducing tests
-    @test typeof(idx) == PointCloudRasterizers.PointCloudIndex
-    @test count(ismissing, raster.A) == 24503457
-    @test count(!ismissing, raster.A) == 496543
-    @test isapprox(mean(skipmissing(raster.A)), 861.5422515270361)
-    @test maximum(idx.counts.A) == 2
+    @testset "Indexing" begin
+        idx = index(pointcloud, cellsizes; crs=crs)
+        @inferred index(pointcloud, cellsizes; crs=crs)
+        @test typeof(idx) == PointCloudRasterizers.PointCloudIndex{LazIO.Dataset{0x00},Int64}
+        @test maximum(idx.counts.A) == 2
+    end
 
-    # filtering tests
-    last_return(p) = LazIO.return_number(p) == LazIO.number_of_returns(p)
-    filter!(idx, last_return)
-    @test sum(idx.counts.A) == 497534
+    @testset "Filtering" begin
+        idx = index(pointcloud, cellsizes; crs=crs)
+        last_return(p) = p.return_number == p.number_of_returns
 
-    # file IO tests
-    GeoArrays.write!("last_return_median.tif", raster)
-    @test isfile("last_return_median.tif")
-    rm("last_return_median.tif")
+        @inferred filter!(idx, last_return)
+        filter!(idx, last_return)
+        @test sum(idx.counts.A) == 497347
+
+        min_terrain = similar(idx.counts, Float32)
+        avg_height = mean(map(x -> x.geometry[3], pointcloud))
+        Base.fill!(min_terrain, avg_height)
+        ground(p, r) = p.geometry[3] < r
+        filter!(idx, min_terrain, ground)
+        @test sum(idx.counts.A) == 385861
+    end
+
+    @testset "Reducing" begin
+        idx = index(pointcloud, cellsizes; crs=crs)
+        raster = reduce(idx, reducer=median, output_type=Val(Float32))
+        @inferred reduce(idx, reducer=median, output_type=Val(Float32))
+        @test raster.crs == convert(GeoFormatTypes.WellKnownText{GeoFormatTypes.CRS}, crs)
+
+        @test size(raster) == (5000, 5000, 1)
+        @test all(832 .< skipmissing(raster) .< 973)
+        @test all(typeof.(skipmissing(raster)) .== Float32)
+
+        @test count(ismissing, raster.A) == 24503647
+        @test count(!ismissing, raster.A) == 496353
+        @test isapprox(mean(skipmissing(raster.A)), 861.5422515270361)
+
+    end
+
+    @testset "FileIO" begin
+        idx = index(pointcloud, cellsizes; crs=crs)
+        raster = reduce(idx, reducer=median, output_type=Val(Float32))
+        eltype(raster) == Float32
+        GeoArrays.write("last_return_median.tif", raster)
+        @test isfile("last_return_median.tif")
+        # rm("last_return_median.tif")
+
+        idx = index(pointcloud, (10, 10); crs=crs)
+        raster = reduce(idx, reducer=minimum, output_type=Val(Float64))
+        eltype(raster) == Float64
+        GeoArrays.write("last_return_minimum.tif", raster)
+        @test isfile("last_return_minimum.tif")
+        # rm("last_return_minimum.tif")
+    end
 end
