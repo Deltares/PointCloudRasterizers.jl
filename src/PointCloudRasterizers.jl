@@ -20,10 +20,10 @@ struct PointCloudIndex{T,X}
     counts::GeoArray{X}
     index::Vector{Int}
 end
-Base.copy(idx::PointCloudIndex) = PointCloudIndex(copy(idx.ds), copy(idx.counts), copy(idx.index))
+Base.copy(idx::PointCloudIndex) = PointCloudIndex(idx.ds, copy(idx.counts), copy(idx.index))
 
 function Base.show(io::IO, ::PointCloudIndex{T,X}) where {T,X}
-    println(io, "PointCloudIndex of $T")
+    println(io, "PointCloudIndex of $T with $(sum(idx.counts)) points")
 end
 
 
@@ -94,7 +94,7 @@ Filter an `index` in place given a `condition`.
 The `condition` is applied to each [`LazIO.LazPoint`](@ref) in the `index`.
 """
 function Base.filter!(index::PointCloudIndex, condition=nothing)
-    if condition != nothing
+    if !isnothing(condition)
         n = 0
         @showprogress 5 "Reducing points..." for (i, p) in enumerate(GeoInterface.getpoint(index.ds))
             @inbounds ind = index.index[i]
@@ -107,6 +107,7 @@ function Base.filter!(index::PointCloudIndex, condition=nothing)
             end
         end
     end
+    return index
 end
 
 """
@@ -125,7 +126,7 @@ function Base.filter!(index::PointCloudIndex, raster::GeoArray, condition=nothin
     index.counts.f == raster.f || error("The affine information does not match")
     index.counts.crs == raster.crs || error("The crs information does not match")
 
-    if condition != nothing
+    if !isnothing(condition)
         n = 0
         @showprogress 5 "Filtering points..." for (i, p) in enumerate(GeoInterface.getpoint(index.ds))
             @inbounds ind = index.index[i]
@@ -139,7 +140,11 @@ function Base.filter!(index::PointCloudIndex, raster::GeoArray, condition=nothin
             end
         end
     end
+    return index
 end
+
+Base.filter(index::PointCloudIndex, condition=nothing) = filter!(copy(index), condition)
+Base.filter(index::PointCloudIndex, raster::GeoArray, condition=nothing) = filter!(copy(index), raster, condition)
 
 """
     reduce(index::PointCloudIndex; field::Function=GeoInterface.z, reducer=minimum, output_type=Val(Float64))
@@ -191,7 +196,6 @@ end
 
 export
     index,
-    filter!,
     reduce
 
 end  # module

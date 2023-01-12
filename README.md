@@ -79,7 +79,7 @@ Lastly, users can filter points matching some condition.
 last_return(p) = p.return_number == p.number_of_returns  # custom for LazIO Points
 filter!(raster_index, last_return)
 ```
-Filters are done in-place and create a new index matching the condition. It does not change the loaded dataset.
+Filters are done in-place and create a new index matching the condition. It does not change the loaded dataset. You can also call `filter` which returns a new index, copying the counts and the index, but it does **not** copy the dataset. This helps with trying out filtering settings without re-indexing the dataset.
 
 Filtering can also be done compared to a computed surface.
 For example, if we want to select all points within some tolerance of the median raster from above:

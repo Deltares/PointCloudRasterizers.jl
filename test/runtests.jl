@@ -26,7 +26,9 @@ crs = EPSG(4326)
 
         @inferred filter!(idx, last_return)
         filter!(idx, last_return)
+        nidx = filter(idx, last_return)
         @test sum(idx.counts.A) == 497347
+        @test nidx.counts == idx.counts
 
         min_terrain = similar(idx.counts, Float32)
         avg_height = mean(map(x -> x.geometry[3], pointcloud))
