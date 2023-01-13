@@ -15,6 +15,7 @@ crs = EPSG(4326)
 
     @testset "Indexing" begin
         idx = index(pointcloud, cellsizes; crs=crs)
+        @info idx
         @inferred index(pointcloud, cellsizes; crs=crs)
         @test typeof(idx) == PointCloudRasterizers.PointCloudIndex{LazIO.Dataset{0x00},Int64}
         @test maximum(idx.counts.A) == 2

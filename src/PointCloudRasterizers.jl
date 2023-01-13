@@ -22,7 +22,7 @@ struct PointCloudIndex{T,X}
 end
 Base.copy(idx::PointCloudIndex) = PointCloudIndex(idx.ds, copy(idx.counts), copy(idx.index))
 
-function Base.show(io::IO, ::PointCloudIndex{T,X}) where {T,X}
+function Base.show(io::IO, idx::PointCloudIndex{T,X}) where {T,X}
     println(io, "PointCloudIndex of $T with $(sum(idx.counts)) points")
 end
 
