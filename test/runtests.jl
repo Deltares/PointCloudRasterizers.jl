@@ -2,6 +2,7 @@ using Test
 
 using GeoArrays
 using GeoFormatTypes
+using GeoInterface
 using LazIO
 using PointCloudRasterizers
 using Statistics
@@ -14,8 +15,8 @@ crs = EPSG(4326)
 @testset "PointCloudRasterizers" begin
 
     @testset "Indexing" begin
-        idx = index(collect(pointcloud), cellsizes; crs=crs)
         idx = index(pointcloud, cellsizes; crs=crs)
+        index(collect(pointcloud), cellsizes; crs=crs, bbox=GeoInterface.extent(pointcloud))
         @inferred index(pointcloud, cellsizes; crs=crs)
         @test typeof(idx) == PointCloudRasterizers.PointCloudIndex{LazIO.Dataset{0x00},Int}
         @test parent(idx) === pointcloud
