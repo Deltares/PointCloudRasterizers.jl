@@ -115,7 +115,7 @@ Finally, we can write the raster to disk.
 GeoArrays.write("last_return_median.tif", raster)
 
 # Or set some attributes
-GeoArrays.write("last_return_median.tif", raster; nodata=-9999, options=Dict("TILED=YES", "COMPRESS"=>"ZSTD")
+GeoArrays.write("last_return_median.tif", raster; nodata=-9999, options=Dict("TILED"=>"YES", "COMPRESS"=>"ZSTD"))
 ```
 
 
