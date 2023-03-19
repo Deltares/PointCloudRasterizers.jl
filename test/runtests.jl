@@ -17,8 +17,10 @@ crs = EPSG(4326)
         idx = index(pointcloud, cellsizes; crs=crs)
         @info idx
         @inferred index(pointcloud, cellsizes; crs=crs)
-        @test typeof(idx) == PointCloudRasterizers.PointCloudIndex{LazIO.Dataset{0x00},Int64}
-        @test maximum(idx.counts.A) == 2
+        @test typeof(idx) == PointCloudRasterizers.PointCloudIndex{LazIO.Dataset{0x00},Int}
+        @test parent(idx) === pointcloud
+        @test maximum(counts(idx)) == 2
+        @test counts(idx).f.linear[1] == 1.0
     end
 
     @testset "Filtering" begin
@@ -28,7 +30,7 @@ crs = EPSG(4326)
         @inferred filter!(idx, last_return)
         filter!(idx, last_return)
         nidx = filter(idx, last_return)
-        @test sum(idx.counts.A) == 497347
+        @test sum(idx.counts.A) == 497358
         @test nidx.counts == idx.counts
 
         min_terrain = similar(idx.counts, Float32)
@@ -36,7 +38,7 @@ crs = EPSG(4326)
         Base.fill!(min_terrain, avg_height)
         ground(p, r) = p.geometry[3] < r
         filter!(idx, min_terrain, ground)
-        @test sum(idx.counts.A) == 385861
+        @test sum(idx.counts.A) == 385871
     end
 
     @testset "Reducing" begin
@@ -49,8 +51,8 @@ crs = EPSG(4326)
         @test all(832 .< skipmissing(raster) .< 973)
         @test all(typeof.(skipmissing(raster)) .== Float32)
 
-        @test count(ismissing, raster.A) == 24503647
-        @test count(!ismissing, raster.A) == 496353
+        @test count(ismissing, raster.A) == 24503630
+        @test count(!ismissing, raster.A) == 496370
         @test isapprox(mean(skipmissing(raster.A)), 861.5422515270361)
 
     end

@@ -10,12 +10,27 @@ PointCloudRasterizers is a Julia package for creating geographical raster images
 
 ## Installation
 
-Use the Julia package manager:
+Use the Julia package manager (`]` in the REPL):
 ```julia
-(v1.8) pkg> add https://github.com/Deltares/PointCloudRasterizers.jl
+(v1.8) pkg> add PointCloudRasterizers
 ```
 
 ## Usage
+
+Rasterizing pointclouds requires at least two steps:
+- `index(pc, cellsizes)` a pointcloud, returning a `PointCloudIndex`, linking each point to a `cellsizes` sized raster cell.
+- `reduce(pc, f)` a `PointCloudIndex`, creating an output raster by calling `f` on all points intersecting a given raster cell. `f` should return a single value.
+
+Optionally one can 
+- `filter(pci, f)` the `PointCloudIndex`, by removing points for which `f` is false. The function `f` receives a single point. `filter!` mutates the `PointCloudIndex`.
+- `filter(pci, raster, f)` the `PointCloudIndex`, by removing points for which `f` is false. The function `f` receives a single point and the corresponding cell value of `raster`. `raster` should have the same size and extents as `counts(pci)`, like a previous result of `reduce`. `filter!` mutates the `PointCloudIndex`.
+
+All three operators iterate once over the pointcloud.
+While rasterizing thus takes at least two complete iterations, it enables rasterizing larger than memory pointclouds, especially if the provided pointcloud is a lazy iterator itself, such as provided by LazIO.
+
+In the case of a small pointcloud, it can be faster to disable this lazy iteration by calling `collect` on the LazIO pointcloud first.
+
+## Examples
 
 ```julia
 using PointCloudRasterizers
@@ -31,53 +46,57 @@ pointcloud = LazIO.open(lazfn)
 
 ```julia
 # Index pointcloud
-cellsizes = (1.,1.) #can also use [1.,1.]
-raster_index = index(pointcloud, cellsizes; crs=GeoFormatTypes.EPSG(4326))
+cellsizes = (1.,1.)  # can also use [1.,1.]
+pci = index(pointcloud, cellsizes)
 
-# get some information about the index
+# By default, the bbox and crs of the pointcloud are used
+pci = index(pointcloud, cellsizes; bbox::Extents.Extent=GeoInterface.extent(pointcloud),crs=GeoInterface.crs(pointcloud))
+
+# but they can be set manually
+pci = index(pointcloud, cellsizes; bbox=Extents.Extent(X=(0, 1), Y=(0, 1)), crs=GeoFormatTypes.EPSG(4326))
+
+# or index using the cellsize and bbox of an existing GeoArray
+pci = index(ds, ga::GeoArray)
+
+# `index` returns a PointCloudIndex
+# which consists of
 
 # the dataset the index was calculated from
-raster_index.ds
+parent(pci)
 
-# ::GeoArray of point density per cell
-raster_index.counts
+# GeoArray of point density per cell
+counts(pci)
 
-# find highest recorded point density
-maximum(raster_index.counts)
+# vector of linear indices joining points to cells
+index(pci)
 
-# one dimensional vector of index values joining points to cells
-raster_index.index
+# For example, one can find the highest recorded point density with
+maximum(counts(pci))
 ```
-The `.index` is created using `LinearIndices`, so the index is a single integer value per cell rather than cartesian (X,Y) syntax
 
-Once an index is created, users can pass the index to the `reduce` function to convert to a raster.
+
+The `index(pci)` is created using `LinearIndices`, so the index is a single integer value per cell rather than cartesian (X,Y) syntax.
+
+Once an `PointCloudIndex` is created, users can pass it to the `reduce` function to convert to a raster.
 
 ```julia
 # Reduce to raster
-raster = reduce(raster_index, reducer=median)
+raster = reduce(pci, reducer=median)
 ```
-The reducer can be functions such as `mean`, `median`, `length` but can also take custom functions. By default the `GeoInterface.z` function is reduced on. You can provide your own function `op` that returns another value for your points.
+The reducer can be functions such as `mean`, `median`, `length` but can also take custom functions. By default the `GeoInterface.z` function is used to retrieve the values to be reduced on. You can provide your own function `op` that returns another value for your points.
 
 ```julia
 # calculate raster of median height using an anonymous function
-height_percentile = reduce(raster_index, op=GeoInterface.z, reducer = x -> quantile(x,0.5))
+height_percentile = reduce(pci, op=GeoInterface.z, reducer = x -> quantile(x,0.5))
 ```
 Any reduced layer is returned as a [GeoArray](https://github.com/evetion/GeoArrays.jl).
 
-```julia
-# access the underlying data GeoArray
-raster.A
-# affine map information
-raster.f
-# crs information
-raster.crs
-```
-Lastly, users can filter points matching some condition.
+One can also filter points matching some condition.
 
 ```julia
 # Filter on last returns (inclusive)
 last_return(p) = p.return_number == p.number_of_returns  # custom for LazIO Points
-filter!(raster_index, last_return)
+filter!(pci, last_return)
 ```
 Filters are done in-place and create a new index matching the condition. It does not change the loaded dataset. You can also call `filter` which returns a new index, copying the counts and the index, but it does **not** copy the dataset. This helps with trying out filtering settings without re-indexing the dataset.
 
@@ -86,17 +105,18 @@ For example, if we want to select all points within some tolerance of the median
 
 ```julia
 within_tol(p, raster_value) = isapprox(p.geometry[3], raster_value, atol=5.0)
-filter!(raster_index, raster, within_tol)
+filter!(pci, raster, within_tol)
 ```
+
+Finally, we can write the raster to disk.
 
 ```julia
 # Save raster to tiff
-GeoArrays.write!("last_return_median.tif", raster)
-```
+GeoArrays.write("last_return_median.tif", raster)
 
-## Future Work
-- Generalize naming
-- Reduce index itself
+# Or set some attributes
+GeoArrays.write("last_return_median.tif", raster; nodata=-9999, options=Dict("TILED=YES", "COMPRESS"=>"ZSTD")
+```
 
 
 ## License

@@ -26,16 +26,25 @@ function Base.show(io::IO, idx::PointCloudIndex{T,X}) where {T,X}
     println(io, "PointCloudIndex of $T with $(sum(idx.counts)) points")
 end
 
+Base.parent(pci::PointCloudIndex) = pci.ds
+counts(pci::PointCloudIndex) = pci.counts
+index(pci::PointCloudIndex) = pci.index
+
 
 """
-    index(ds, cellsizes; bbox=GeoInterface.extent(ds), wkt=GeoInterface.crs(ds))
+    index(ds, cellsizes; bbox=GeoInterface.extent(ds), crs=GeoInterface.crs(ds))
 
-Index a pointcloud `ds` to a raster, for given `cellsizes` and `bbox`. The `crs` will be
-the CRS of the output raster. `ds` should implement GeoInterface as a MultiPoint geometry,
-including the 
+Index a pointcloud `ds` to a raster, for given `cellsizes`. The `bbox` and `crs` will be
+the CRS of the output raster and are by default derived from `ds`.
+`ds` should implement GeoInterface as a MultiPoint geometry.
+
+Note that the the cellsizes, together with the minima of the extent are leading in determining the output.
+If the `cellsizes` do not fit precisely in the `bbox`, the output will be less than a cellsize
+larger than the maxima provided in `bbox`.
+
 Returns a [`PointCloudIndex`](@ref).
 """
-function index(ds::T, cellsizes; bbox::Extents.Extent=GeoInterface.extent(ds), crs=GeoInterface.crs(ds))::PointCloudIndex{T} where {T}
+function index(ds::T, cellsizes; bbox::Extents.Extent=GeoInterface.extent(ds), crs=GeoInterface.crs(ds))::PointCloudIndex{T,Int} where {T}
 
     # Check ds for GeoInterface support
     GeoInterface.isgeometry(ds) && (GeoInterface.geomtrait(ds) == GeoInterface.MultiPointTrait()) || throw(ArgumentError("`ds` must implement GeoInterface as a MultiPoint geometry"))
@@ -44,16 +53,19 @@ function index(ds::T, cellsizes; bbox::Extents.Extent=GeoInterface.extent(ds), c
 
     cols = Int(cld(bbox.X[2] - bbox.X[1], cellsizes[1]))
     rows = Int(cld(bbox.Y[2] - bbox.Y[1], cellsizes[2]))
-    ga = GeoArray(zeros(Int64, cols, rows))
+    ga = GeoArray(zeros(Int, cols, rows))
     nt = (min_x=bbox.X[1], min_y=bbox.Y[1], max_x=bbox.X[2], max_y=bbox.Y[2])
-    bbox!(ga, nt)
+    ga.f = GeoArrays.AffineMap(
+        GeoArrays.SMatrix{2,2}(float(cellsizes[1]), 0.0, 0.0, float(cellsizes[2])),
+        GeoArrays.SVector(float(bbox.X[1]), float(bbox.Y[1]))
+    )
     crs!(ga, crs)
 
     return index!(ds, ga)
 end
 @deprecate index(ds, cellsizes, bbox, crs) index(ds, cellsizes; bbox=bbox, crs=crs)
 
-function index!(ds::T, counts::GeoArray{X})::PointCloudIndex{T} where {T,X}
+function index!(ds::T, counts::GeoArray{X})::PointCloudIndex{T,X} where {T,X}
     # Check input
     # TODO Check crs matching (including nothing for LazIO)
     GeoInterface.isgeometry(ds) && (GeoInterface.geomtrait(ds) == GeoInterface.MultiPointTrait()) || throw(ArgumentError("`ds` must implement GeoInterface as a MultiPoint geometry"))
@@ -82,7 +94,7 @@ end
 Index a pointcloud `ds` with the spatial information of an existing GeoArray `ga`.
 Returns a [`PointCloudIndex`](@ref).
 """
-function index(ds, ga::GeoArray)
+function index(ds::T, ga::GeoArray{X})::PointCloudIndex{T,X} where {T,X}
     index!(ds, similar(Int, ga))
 end
 
@@ -156,7 +168,7 @@ function Base.reduce(index::PointCloudIndex; op::Function=GeoInterface.z, reduce
 
     # Setup output grid
     counts = copy(index.counts)
-    d = Dictionaries.Dictionary{Int,Vector{T}}()
+    d = Dictionaries.Dictionary{Int,Vector{T}}(sizehint=cld(length(counts), 4))
     output = similar(counts, Union{Missing,T})
 
     @inbounds @showprogress 5 "Reducing points..." for (i, p) in enumerate(GeoInterface.getpoint(index.ds))
@@ -196,6 +208,7 @@ end
 
 export
     index,
-    reduce
+    reduce,
+    counts
 
 end  # module
