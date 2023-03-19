@@ -44,7 +44,7 @@ larger than the maxima provided in `bbox`.
 
 Returns a [`PointCloudIndex`](@ref).
 """
-function index(ds::T, cellsizes; bbox::Extents.Extent=GeoInterface.extent(ds), crs=GeoInterface.crs(ds))::PointCloudIndex{T,Int} where {T}
+function index(ds::T, cellsizes; bbox=GeoInterface.extent(ds; fallback=false), crs=GeoInterface.crs(ds))::PointCloudIndex{T,Int} where {T}
 
     # Check ds for GeoInterface support
     GeoInterface.isgeometry(ds) && (GeoInterface.geomtrait(ds) == GeoInterface.MultiPointTrait()) || throw(ArgumentError("`ds` must implement GeoInterface as a MultiPoint geometry"))
@@ -83,8 +83,8 @@ function index!(ds::T, counts::GeoArray{X})::PointCloudIndex{T,X} where {T,X}
 
     @showprogress 5 "Building index..." for (i, p) in enumerate(GeoInterface.getgeom(ds))
         col, row = indices(counts, (GeoInterface.x(p), GeoInterface.y(p)))
-        ((0 < col < cols) && (0 < row < rows)) || continue
-        li = linind[col, row]
+        ((0 < col <= cols) && (0 < row <= rows)) || continue
+        @inbounds li = linind[col, row]
         @inbounds indvec[i] = li
         @inbounds counts[li] += 1
     end
