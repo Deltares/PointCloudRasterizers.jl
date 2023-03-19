@@ -49,7 +49,11 @@ function index(ds::T, cellsizes; bbox::Extents.Extent=GeoInterface.extent(ds), c
     # Check ds for GeoInterface support
     GeoInterface.isgeometry(ds) && (GeoInterface.geomtrait(ds) == GeoInterface.MultiPointTrait()) || throw(ArgumentError("`ds` must implement GeoInterface as a MultiPoint geometry"))
     isnothing(bbox) && throw(ArgumentError("Either `ds` must implement GeoInterface.extent(ds) or a `bbox` argument must be provided."))
-    crs isa GeoFormatTypes.CoordinateReferenceSystemFormat || throw(ArgumentError("Either `ds` must implement GeoInterface.crs(ds) or a `crs` must be provided as a GeoFormatType.CRS."))
+    if isnothing(crs)
+        crs = GeoFormatTypes.WellKnownText(GeoFormatTypes.CRS(), "")
+    else
+        GeoFormatTypes.mode(crs) isa GeoFormatTypes.CRS || throw(ArgumentError("`crs` must be provided as a GeoFormatTypes.CRS."))
+    end
 
     cols = Int(cld(bbox.X[2] - bbox.X[1], cellsizes[1]))
     rows = Int(cld(bbox.Y[2] - bbox.Y[1], cellsizes[2]))
@@ -59,7 +63,7 @@ function index(ds::T, cellsizes; bbox::Extents.Extent=GeoInterface.extent(ds), c
         GeoArrays.SMatrix{2,2}(float(cellsizes[1]), 0.0, 0.0, float(cellsizes[2])),
         GeoArrays.SVector(float(bbox.X[1]), float(bbox.Y[1]))
     )
-    crs!(ga, crs)
+    ga.crs = crs
 
     return index!(ds, ga)
 end
@@ -95,7 +99,7 @@ Index a pointcloud `ds` with the spatial information of an existing GeoArray `ga
 Returns a [`PointCloudIndex`](@ref).
 """
 function index(ds::T, ga::GeoArray{X})::PointCloudIndex{T,X} where {T,X}
-    index!(ds, similar(Int, ga))
+    index!(ds, similar(ga, Int))
 end
 
 

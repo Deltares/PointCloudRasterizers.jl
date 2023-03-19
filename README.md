@@ -38,6 +38,8 @@ using LazIO
 using GeoArrays
 using Statistics
 using GeoFormatTypes
+using Extents
+using GeoInterface
 
 # Open LAZ file, but can be any GeoInterface support MultiPoint geometry
 lazfn = joinpath(dirname(pathof(LazIO)), "..", "test/libLAS_1.2.laz")
@@ -50,18 +52,18 @@ cellsizes = (1.,1.)  # can also use [1.,1.]
 pci = index(pointcloud, cellsizes)
 
 # By default, the bbox and crs of the pointcloud are used
-pci = index(pointcloud, cellsizes; bbox::Extents.Extent=GeoInterface.extent(pointcloud),crs=GeoInterface.crs(pointcloud))
+pci = index(pointcloud, cellsizes; bbox=GeoInterface.extent(pointcloud),crs=GeoInterface.crs(pointcloud))
 
 # but they can be set manually
 pci = index(pointcloud, cellsizes; bbox=Extents.Extent(X=(0, 1), Y=(0, 1)), crs=GeoFormatTypes.EPSG(4326))
 
-# or index using the cellsize and bbox of an existing GeoArray
-pci = index(ds, ga::GeoArray)
+# or index using the cellsize and bbox of an existing GeoArray `ga`
+pci = index(pointcloud, ga)
 
 # `index` returns a PointCloudIndex
 # which consists of
 
-# the dataset the index was calculated from
+# the pointcloud the index was calculated from
 parent(pci)
 
 # GeoArray of point density per cell
@@ -114,7 +116,7 @@ Finally, we can write the raster to disk.
 # Save raster to tiff
 GeoArrays.write("last_return_median.tif", raster)
 
-# Or set some attributes
+# Or set some attributes for the tiff file
 GeoArrays.write("last_return_median.tif", raster; nodata=-9999, options=Dict("TILED"=>"YES", "COMPRESS"=>"ZSTD"))
 ```
 
