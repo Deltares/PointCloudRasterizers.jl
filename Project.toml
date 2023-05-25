@@ -14,7 +14,7 @@ ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 [compat]
 Dictionaries = "0.3"
 Extents = "0.1"
-GeoArrays = "0.7"
+GeoArrays = "0.7, 0.8"
 GeoFormatTypes = "0.4"
 GeoInterface = "1"
 ProgressMeter = "1"
