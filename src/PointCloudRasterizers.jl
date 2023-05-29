@@ -82,7 +82,7 @@ function index!(ds::T, counts::GeoArray{X})::PointCloudIndex{T,X} where {T,X}
     cols, rows, _ = size(counts)
 
     @showprogress 5 "Building index..." for (i, p) in enumerate(GeoInterface.getgeom(ds))
-        col, row = indices(counts, (GeoInterface.x(p), GeoInterface.y(p)))
+        col, row = Tuple(indices(counts, (GeoInterface.x(p), GeoInterface.y(p))))
         ((0 < col <= cols) && (0 < row <= rows)) || continue
         @inbounds li = linind[col, row]
         @inbounds indvec[i] = li
