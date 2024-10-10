@@ -44,7 +44,7 @@ larger than the maxima provided in `bbox`.
 
 Returns a [`PointCloudIndex`](@ref).
 """
-function index(ds::T, cellsizes; bbox=GeoInterface.extent(ds; fallback=false), crs=GeoInterface.crs(ds))::PointCloudIndex{T,Int} where {T}
+function index(ds::T, cellsizes; bbox=GeoInterface.extent(ds; fallback=false), crs=GeoInterface.crs(ds), rounding::RoundingMode=RoundNearest)::PointCloudIndex{T,Int} where {T}
 
     # Check ds for GeoInterface support
     GeoInterface.isgeometry(ds) && (GeoInterface.geomtrait(ds) == GeoInterface.MultiPointTrait()) || throw(ArgumentError("`ds` must implement GeoInterface as a MultiPoint geometry"))
@@ -65,11 +65,11 @@ function index(ds::T, cellsizes; bbox=GeoInterface.extent(ds; fallback=false), c
     )
     ga.crs = crs
 
-    return index!(ds, ga)
+    return index!(ds, ga; rounding)
 end
 @deprecate index(ds, cellsizes, bbox, crs) index(ds, cellsizes; bbox=bbox, crs=crs)
 
-function index!(ds::T, counts::GeoArray{X})::PointCloudIndex{T,X} where {T,X}
+function index!(ds::T, counts::GeoArray{X}; rounding::RoundingMode=RoundNearest)::PointCloudIndex{T,X} where {T,X}
     # Check input
     # TODO Check crs matching (including nothing for LazIO)
     GeoInterface.isgeometry(ds) && (GeoInterface.geomtrait(ds) == GeoInterface.MultiPointTrait()) || throw(ArgumentError("`ds` must implement GeoInterface as a MultiPoint geometry"))
@@ -79,10 +79,10 @@ function index!(ds::T, counts::GeoArray{X})::PointCloudIndex{T,X} where {T,X}
     indvec = zeros(Int, length(ds))
 
     linind = LinearIndices(counts)
-    cols, rows, _ = size(counts)
+    cols, rows = size(counts)
 
     @showprogress 5 "Building index..." for (i, p) in enumerate(GeoInterface.getgeom(ds))
-        col, row = Tuple(indices(counts, (GeoInterface.x(p), GeoInterface.y(p))))
+        col, row = Tuple(indices(counts, (GeoInterface.x(p), GeoInterface.y(p)), GeoArrays.Center(), rounding))
         ((0 < col <= cols) && (0 < row <= rows)) || continue
         @inbounds li = linind[col, row]
         @inbounds indvec[i] = li
@@ -107,7 +107,7 @@ end
     filter!(index::PointCloudIndex, condition=nothing)
 
 Filter an `index` in place given a `condition`.
-The `condition` is applied to each [`LazIO.LazPoint`](@ref) in the `index`.
+The `condition` is applied to each point in the `index`.
 """
 function Base.filter!(index::PointCloudIndex, condition=nothing)
     if !isnothing(condition)
@@ -168,7 +168,7 @@ Base.filter(index::PointCloudIndex, raster::GeoArray, condition=nothing) = filte
 Reduce the indexed pointcloud `index` to a raster with type `output_type`, using the `field` of the points to reduce with `reducer`.
 For example, one might reduce on `minimum` and `:z`, to get the lowest z (elevation) value of all points intersecting each raster cell.
 """
-function Base.reduce(index::PointCloudIndex; op::Function=GeoInterface.z, reducer=minimum, output_type::Val{T}=Val(Float64))::GeoArray{Union{Missing,T},Array{Union{Missing,T},3}} where {T}
+function Base.reduce(index::PointCloudIndex; op::Function=GeoInterface.z, reducer=minimum, output_type::Val{T}=Val(Float64))::GeoArray{Union{Missing,T},2,Array{Union{Missing,T},2}} where {T}
 
     # Setup output grid
     counts = copy(index.counts)

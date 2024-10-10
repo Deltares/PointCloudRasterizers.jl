@@ -49,7 +49,7 @@ crs = EPSG(4326)
         @inferred reduce(idx, reducer=median, output_type=Val(Float32))
         @test raster.crs == convert(GeoFormatTypes.WellKnownText{GeoFormatTypes.CRS}, crs)
 
-        @test size(raster) == (5000, 5000, 1)
+        @test size(raster) == (5000, 5000)
         @test all(832 .< skipmissing(raster) .< 973)
         @test all(typeof.(skipmissing(raster)) .== Float32)
 

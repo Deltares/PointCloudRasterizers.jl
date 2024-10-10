@@ -11,7 +11,8 @@ makedocs(;
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
         canonical="https://deltares.github.io/PointCloudRasterizers.jl",
-        assets=String[]
+        assets=String[],
+        repolink="https://deltares.github.io/PointCloudRasterizers.jl"
     ),
     pages=[
         "Home" => "index.md",

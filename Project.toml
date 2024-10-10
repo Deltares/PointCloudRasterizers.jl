@@ -1,7 +1,7 @@
 name = "PointCloudRasterizers"
 uuid = "971589f2-82d2-11e9-1393-93ab095f3ec7"
 authors = ["Maarten Pronk <git@evetion.nl>"]
-version = "0.2.5"
+version = "0.2.6"
 
 [deps]
 Dictionaries = "85a47980-9c8c-11e8-2b9f-f7ca1fa99fb4"
@@ -12,9 +12,9 @@ GeoInterface = "cf35fbd7-0cd7-5166-be24-54bfbe79505f"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 
 [compat]
-Dictionaries = "0.3"
+Dictionaries = "0.3, 0.4"
 Extents = "0.1"
-GeoArrays = "0.7, 0.8"
+GeoArrays = "0.9"
 GeoFormatTypes = "0.4"
 GeoInterface = "1"
 ProgressMeter = "1"
