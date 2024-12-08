@@ -12,7 +12,7 @@ PointCloudRasterizers is a Julia package for creating geographical raster images
 
 Use the Julia package manager (`]` in the REPL):
 ```julia
-(v1.8) pkg> add PointCloudRasterizers
+(v1.11) pkg> add PointCloudRasterizers
 ```
 
 ## Usage

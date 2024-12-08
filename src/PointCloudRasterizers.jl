@@ -44,7 +44,7 @@ larger than the maxima provided in `bbox`.
 
 Returns a [`PointCloudIndex`](@ref).
 """
-function index(ds::T, cellsizes; bbox=GeoInterface.extent(ds; fallback=false), crs=GeoInterface.crs(ds), rounding::RoundingMode=RoundNearest)::PointCloudIndex{T,Int} where {T}
+function index(ds::T, cellsizes; bbox=GeoInterface.extent(ds; fallback=false), crs=GeoInterface.crs(ds), rounding::RoundingMode=RoundNearest)::PointCloudIndex{T,UInt16} where {T}
 
     # Check ds for GeoInterface support
     GeoInterface.isgeometry(ds) && (GeoInterface.geomtrait(ds) == GeoInterface.MultiPointTrait()) || throw(ArgumentError("`ds` must implement GeoInterface as a MultiPoint geometry"))
@@ -57,13 +57,15 @@ function index(ds::T, cellsizes; bbox=GeoInterface.extent(ds; fallback=false), c
 
     cols = Int(cld(bbox.X[2] - bbox.X[1], cellsizes[1]))
     rows = Int(cld(bbox.Y[2] - bbox.Y[1], cellsizes[2]))
-    ga = GeoArray(zeros(Int, cols, rows))
     nt = (min_x=bbox.X[1], min_y=bbox.Y[1], max_x=bbox.X[2], max_y=bbox.Y[2])
-    ga.f = GeoArrays.AffineMap(
-        GeoArrays.SMatrix{2,2}(float(cellsizes[1]), 0.0, 0.0, float(cellsizes[2])),
-        GeoArrays.SVector(float(bbox.X[1]), float(bbox.Y[1]))
+    ga = GeoArray(
+        zeros(UInt16, cols, rows),  # max 65535 points per cell
+        GeoArrays.AffineMap(
+            GeoArrays.SMatrix{2,2}(float(cellsizes[1]), 0.0, 0.0, float(cellsizes[2])),
+            GeoArrays.SVector(float(bbox.X[1]), float(bbox.Y[1]))
+        ),
+        convert(GeoFormatTypes.WellKnownText, crs),
     )
-    ga.crs = crs
 
     return index!(ds, ga; rounding)
 end
@@ -81,10 +83,11 @@ function index!(ds::T, counts::GeoArray{X}; rounding::RoundingMode=RoundNearest)
     linind = LinearIndices(counts)
     cols, rows = size(counts)
 
-    @showprogress 5 "Building index..." for (i, p) in enumerate(GeoInterface.getgeom(ds))
-        col, row = Tuple(indices(counts, (GeoInterface.x(p), GeoInterface.y(p)), GeoArrays.Center(), rounding))
-        ((0 < col <= cols) && (0 < row <= rows)) || continue
-        @inbounds li = linind[col, row]
+    # @showprogress 5 "Building index..." 
+    for (i, p) in enumerate(GeoInterface.getgeom(ds))
+        I = indices(counts, (GeoInterface.x(p), GeoInterface.y(p)), GeoArrays.Center(), rounding)
+        checkbounds(Bool, counts, I) || continue
+        @inbounds li = linind[I]
         @inbounds indvec[i] = li
         @inbounds counts[li] += 1
     end
@@ -99,7 +102,7 @@ Index a pointcloud `ds` with the spatial information of an existing GeoArray `ga
 Returns a [`PointCloudIndex`](@ref).
 """
 function index(ds::T, ga::GeoArray{X})::PointCloudIndex{T,X} where {T,X}
-    index!(ds, similar(ga, Int))
+    index!(ds, similar(ga, UInt16))
 end
 
 
@@ -112,7 +115,8 @@ The `condition` is applied to each point in the `index`.
 function Base.filter!(index::PointCloudIndex, condition=nothing)
     if !isnothing(condition)
         n = 0
-        @showprogress 5 "Reducing points..." for (i, p) in enumerate(GeoInterface.getpoint(index.ds))
+
+        for (i, p) in enumerate(GeoInterface.getpoint(index.ds))
             @inbounds ind = index.index[i]
             ind == 0 && continue  # filtered point
 
@@ -163,52 +167,96 @@ Base.filter(index::PointCloudIndex, condition=nothing) = filter!(copy(index), co
 Base.filter(index::PointCloudIndex, raster::GeoArray, condition=nothing) = filter!(copy(index), raster, condition)
 
 """
-    reduce(index::PointCloudIndex; field::Function=GeoInterface.z, reducer=minimum, output_type=Val(Float64))
+    reduce(index::PointCloudIndex; field::Function=GeoInterface.z, reducer=min, output_type=Val(Float64))
 
 Reduce the indexed pointcloud `index` to a raster with type `output_type`, using the `field` of the points to reduce with `reducer`.
 For example, one might reduce on `minimum` and `:z`, to get the lowest z (elevation) value of all points intersecting each raster cell.
 """
-function Base.reduce(index::PointCloudIndex; op::Function=GeoInterface.z, reducer=minimum, output_type::Val{T}=Val(Float64))::GeoArray{Union{Missing,T},2,Array{Union{Missing,T},2}} where {T}
+function Base.reduce(index::PointCloudIndex; op::Function=GeoInterface.z, reducer=min, output_type::Val{T}=Val(Float64))::GeoArray{Union{Missing,T},2,Array{Union{Missing,T},2}} where {T}
+    reduce(index, op, reducer, T)
+end
+
+function Base.reduce(idx::PointCloudIndex, op::Function, reducer, output_type::Type{T})::GeoArray{Union{Missing,T},2,Array{Union{Missing,T},2}} where {T}
 
     # Setup output grid
-    counts = copy(index.counts)
-    d = Dictionaries.Dictionary{Int,Vector{T}}(sizehint=cld(length(counts), 4))
-    output = similar(counts, Union{Missing,T})
+    count = counts(idx)
+    output = similar(count, Union{Missing,T})::GeoArray{Union{Missing,T},2,Array{Union{Missing,T},2}}
 
-    @inbounds @showprogress 5 "Reducing points..." for (i, p) in enumerate(GeoInterface.getpoint(index.ds))
+    # If op.(index) fits in memory, we can use a more efficient method
+    fitsinmemory = Sys.free_memory() / sum(counts(idx)) * sizeof(T) > 5
+    if fitsinmemory
+        opv = Vector{T}(undef, sum(count))::Vector{T}
+        order = invperm(sortperm(filter(>(0), index(idx))))
 
-        # Gather facts
-        ind = index.index[i]
-        ind == 0 && continue  # filtered point
-        cnt = counts.A[ind]
-        cnt == 0 && continue  # filtered point
+        ii = 0
+        @inbounds for (i, p) in enumerate(GeoInterface.getpoint(idx.ds))
+            ind = index(idx)[i]
+            ind == 0 && continue  # filtered point
 
-        # allocate vector points
-        if !haskey(d, ind)
-            insert!(d, ind, Vector{T}(undef, cnt))
+            ii += 1
+            ind = order[ii]
+            opv[ind] = op(p)
         end
+        ind = 1
+        for (I, C) in enumerate(count::GeoArray{UInt16,2,Matrix{UInt16}})
+            C == 0 && continue
+            output[I] = reducer(@view opv[ind:ind+C-1])
+            ind += C
+        end
+    else
+        count = copy(count)::GeoArray{UInt16,2,Matrix{UInt16}}
+        d = Dictionaries.Dictionary{Int,Vector{T}}(sizehint=cld(length(count), 4))
 
-        # Assign point attribute to tile and decrease sizes
-        # as it's used as pointer in the tile
-        d[ind][cnt] = op(p)
-        newcnt = counts.A[ind] -= 1
+        @inbounds for (i, p) in enumerate(GeoInterface.getpoint(idx.ds))
 
-        # If count reaches 0
-        # tile is complete and we can operate on it
-        if newcnt == 0
-            points = d[ind]
+            # Gather facts
+            ind = index(idx)[i]
+            ind == 0 && continue  # filtered point
+            cnt = count[ind]
+            cnt == 0 && continue  # filtered point
 
-            if length(points) > 0
-                output.A[ind] = reducer(points)
-            else
-                output.A[ind] = missing
+            # allocate vector points
+            if !haskey(d, ind)
+                insert!(d, ind, Vector{T}(undef, cnt))
             end
 
-            delete!(d, ind)
+            # Assign point attribute to tile and decrease sizes
+            # as it's used as pointer in the tile
+            d[ind][cnt] = op(p)
+            newcnt = count[ind] -= 1
+
+            # If count reaches 0
+            # tile is complete and we can operate on it
+            if newcnt == 0
+                points = d[ind]
+                if length(points) > 0
+                    output[ind] = reducer(points)
+                else
+                    error("No points in tile")
+                end
+
+                delete!(d, ind)
+            end
         end
     end
     return output
 end
+
+function Base.reduce(index::PointCloudIndex, op::Function, reducer::Union{typeof(min),typeof(max)}, output_type::Type{T})::GeoArray{Union{Missing,T},2,Array{Union{Missing,T},2}} where {T}
+    # Setup output grid
+    output = similar(index.counts, Union{Missing,T})::GeoArray{Union{Missing,T},2,Array{Union{Missing,T},2}}
+    fill!(output, missing)
+
+    @inbounds for (i, p) in enumerate(GeoInterface.getpoint(index.ds))
+
+        # Gather facts
+        ind = index.index[i]::Int
+        ind == 0 && continue  # filtered point
+        output[ind] = ismissing(output[ind]) ? op(p) : reducer(output[ind], op(p))
+    end
+    return output
+end
+
 
 export
     index,
